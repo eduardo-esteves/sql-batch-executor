@@ -1,22 +1,8 @@
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 import mysql.connector
-
-# take environment variables from .env.
-load_dotenv()
-
-# Database settings
-config = {
-    'user': os.getenv('dbuser'),
-    'password': os.getenv('dbpass'),
-    'host': os.getenv('dbhost'),
-    'database': os.getenv('dbname'),
-    'raise_on_warnings': True
-}
-
-BASE_DIR = Path(__file__).resolve().parent
+import conf
 
 
 def execute_sql_file(cursor: mysql.connector.cursor, file_path: str) -> None:
@@ -77,7 +63,7 @@ def main():
     """
 
     # Path to the folder with SQL files
-    path = Path(BASE_DIR, 'database')
+    path = Path(conf.BASE_DIR, 'database')
 
     # List and sort the files by numeric prefix
     sql_files = sorted(
@@ -86,7 +72,7 @@ def main():
     )
 
     # Database connection
-    cnx = mysql.connector.connect(**config)
+    cnx = mysql.connector.connect(**conf.config)
     cursor = cnx.cursor()
 
     # Execute each SQL file in order
