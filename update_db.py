@@ -22,13 +22,33 @@ BASE_DIR = Path(__file__).resolve().parent
 def execute_sql_file(cursor, file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         sql_script = file.read()
-    commands = sql_script.split(';')
+
+    commands = []
+    delimiter = ";"
+    command = ""
+
+    for line in sql_script.splitlines():
+        if line.startswith("DELIMITER"):
+            delimiter = line.split()[1]
+            if command.strip():
+                commands.append(command.strip())
+                command = ""
+        else:
+            command += line + "\n"
+            if delimiter in command:
+                command = command.replace(delimiter, ";")
+                commands.append(command.strip())
+                command = ""
+
+    if command.strip():
+        commands.append(command.strip())
+
     for command in commands:
         try:
             if command.strip():
                 cursor.execute(command)
         except mysql.connector.Error as err:
-            print(f"Error executing command {command}: {err}")
+            print(f"Error executing command: {command}\nError: {err}")
 
 
 def main():
