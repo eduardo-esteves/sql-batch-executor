@@ -3,15 +3,17 @@ from pathlib import Path
 
 import mysql.connector
 import conf
+from functions.user_choices import get_user_option
 
 
-def execute_sql_file(cursor: mysql.connector.cursor, file_path: str) -> None:
+def execute_sql_file(cursor: mysql.connector.cursor, file_path: str, ignore_drop: bool = False) -> None:
     """
     Reads an SQL fiel and executes its commands using the provided cursor.
 
     Args:
         cursor (mysql.connector.cursor): The database cursor.
         file_path (str): The path to the SQL file.
+        ignore_drop (bool): If True, ignore SQL commands that start with "DROP TABLE".
 
     @author Eduardo Esteves
     """
@@ -24,7 +26,7 @@ def execute_sql_file(cursor: mysql.connector.cursor, file_path: str) -> None:
     sql_file = Path(file_path).name
 
     for line in sql_script.splitlines():
-        if line.startswith("DELIMITER"):
+        if line.lower().startswith("delimiter"):
             delimiter = line.split()[1]
             if command.strip():
                 commands.append(command.strip())
@@ -40,18 +42,21 @@ def execute_sql_file(cursor: mysql.connector.cursor, file_path: str) -> None:
         commands.append(command.strip())
 
     for command in commands:
+        if ignore_drop and command.strip().lower().startswith("drop table"):
+            print(f"Ignoring command: {command.strip()} in {sql_file}\n")
+            break
         try:
             if command.strip():
                 cursor.execute(command)
         except mysql.connector.Error as err:
             match err.errno:
                 case 1060:
-                    print(f"\nWarning: {err.errno} {err.sqlstate} {err.msg} in {sql_file}\n")
+                    print(f"Warning: {err.errno} {err.sqlstate} {err.msg} in {sql_file}\n")
                 case _:
-                    print(f"\nError executing command: {command}\nError: {err} in {sql_file}\n")
+                    print(f"Error executing command: {command}\nError: {err} in {sql_file}\n")
 
 
-def main():
+def main(option: int) -> None:
     """
     Main function to execute SQL scripts from a specified directory in order.
 
@@ -74,17 +79,24 @@ def main():
     # Database connection
     cnx = mysql.connector.connect(**conf.config)
     cursor = cnx.cursor()
+    total = 0
 
     # Execute each SQL file in order
     for sql_file in sql_files:
         print(f"Executing {sql_file}...")
-        execute_sql_file(cursor, os.path.join(path, sql_file))
+
+        if option == 1:
+            execute_sql_file(cursor, os.path.join(path, sql_file))
+        else:
+            execute_sql_file(cursor, os.path.join(path, sql_file), ignore_drop=True)
         cnx.commit()
+        total += 1
 
     cursor.close()
     cnx.close()
-    print("ALL SQL scripts have been executed.")
+    print(f"\nALL {total} SQL scripts have been executed.")
 
 
 if __name__ == '__main__':
-    main()
+    user_option = get_user_option()
+    main(user_option)
